@@ -1,0 +1,7 @@
+\begin{theindex}
+\def\bigletter#1{{\Large\sffamily#1}\nopagebreak\vspace{1mm}}
+
+  \bigletter R
+  \item royfit.\_\_init\_\_ (module), \hyperpage{3}
+
+\end{theindex}
