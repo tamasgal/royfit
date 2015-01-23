@@ -45,9 +45,16 @@ coverage.xml
 # Rope
 .ropeproject
 
-# PyCharm
-.idea
+# Django stuff:
+*.log
+*.pot
 
 # Sphinx documentation
 docs/_build/
+
+# VI swap files
+*.swp
+
+# PyCharm files
+.idea
 
