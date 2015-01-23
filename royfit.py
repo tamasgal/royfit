@@ -2,7 +2,7 @@ import operator
 
 from km3pipe import Module
 
-class CoincidentHitSelector(Module):
+class OMRawHitMerger(Module):
     def process(self, blob):
         detector = blob['Detector']
         hits = blob['EvtRawHits']
