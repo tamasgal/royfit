@@ -7,14 +7,24 @@ from km3pipe import Module
 
 class ZTPlotter(Module):
     def process(self, blob):
-        self.scatter(blob['EvtRawHits'], size=30, alpha=0.2, marker='x')
-        self.scatter(blob['MergedEvtRawHits'], size=40, alpha=0.2, color='red', marker='o')
+        self.scatter(blob['EvtRawHits'],
+                     size=2, alpha=1.0, marker='.',
+                     label="RawHits")
+        self.scatter(blob['MergedEvtRawHits'],
+                     size=80, alpha=0.2, color='red', marker='o',
+                     label='MergedRawHits')
+        self.scatter(blob['HighToTHits'],
+                     size=60, alpha=1.0, color='green', marker='x',
+                     label='High ToT Hits')
+        plt.xlabel("t [ns]", fontsize=12)
+        plt.ylabel("z [m]", fontsize=12)
+        plt.legend()
         plt.show()
         return blob
 
-    def scatter(self, hits, color='blue', size=10, alpha=1.0, marker='o'):
+    def scatter(self, hits, color='blue', size=10, alpha=1.0, marker='o', label=None):
         times, zs = self.get_zt_points(hits)
-        plt.scatter(times, zs, s=size, c=color, alpha=alpha, marker=marker)
+        plt.scatter(times, zs, s=size, c=color, alpha=alpha, marker=marker, label=label)
 
     def get_zt_points(self, hits):
         times = [hit.time for hit in hits]

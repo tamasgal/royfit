@@ -24,7 +24,7 @@ def main():
     pipe.attach(StatusBar)
     pipe.attach(EvtPump, filename=os.path.join(DATA_PATH, EVT_FILE))
     pipe.attach(Geometry, filename=os.path.join(DATA_PATH, GEO_FILE))
-    pipe.attach(OMRawHitMerger, time_window=10)
+    pipe.attach(OMRawHitMerger, time_window=20)
     pipe.attach(TOTFilter,
                 input_hits='MergedEvtRawHits',
                 output_hits='HighToTHits',
