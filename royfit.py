@@ -2,6 +2,21 @@ import operator
 
 from km3pipe import Module
 
+class TOTFilter(Module):
+    """Only keep hits with at least min_tot"""
+    def __init__(self, **context):
+        super(self.__class__, self).__init__(**context)
+        self.min_tot = self.get('min_tot') or 20 
+        self.input_hits = self.get('input_hits') or 'EvtRawHits'
+        self.output_hits = self.get('output_hits') or 'HighToTHits'
+
+    def process(self, blob):
+        hits = blob[self.input_hits]
+        filtered_hits = [hit for hit in hits if hit.tot >= self.min_tot]
+        blob[self.output_hits] = filtered_hits
+        print("Number of high tot hits: " + str(len(filtered_hits)))
+        return blob
+
 
 class OMRawHitMerger(Module):
     """Merges hits on the same OM within a given time window.
@@ -13,11 +28,11 @@ class OMRawHitMerger(Module):
     def __init__(self, **context):
         super(self.__class__, self).__init__(**context)
         self.time_window = self.get('time_window') or 10
-        self.input_hits_key = self.get('input_hits_key') or 'EvtRawHits'
-        self.output_hits_key = self.get('output_hits_key') or 'MergedEvtRawHits'
+        self.input_hits = self.get('input_hits') or 'EvtRawHits'
+        self.output_hits = self.get('output_hits') or 'MergedEvtRawHits'
 
     def process(self, blob):
-        hits = blob[self.input_hits_key]
+        hits = blob[self.input_hits]
         hits.sort(key=lambda x: x.time)
 
         print("Number of raw hits: " + str(len(hits)))
@@ -25,8 +40,8 @@ class OMRawHitMerger(Module):
         om_hits = self.sort_hits_by_om(hits)
         merged_hits = self.merge_hits(om_hits)
         print("Number of merged hits: " + str(len(merged_hits)))
-        
-        blob[self.output_hits_key] = merged_hits
+
+        blob[self.output_hits] = merged_hits
         return blob
 
     def sort_hits_by_om(self, hits):
