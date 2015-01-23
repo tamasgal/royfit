@@ -10,8 +10,9 @@ except ImportError:
     sys.path.insert(1, '/Users/tamasgal/Dev/km3pipe')
     import km3pipe
 
+from km3pipe import Geometry
 from km3pipe.pumps import EvtPump
-from km3modules import StatusBar, Geometry
+from km3modules import StatusBar
 from royfit import OMRawHitMerger
 
 DATA_PATH='/Users/tamasgal/Data/KM3NeT'

@@ -17,24 +17,24 @@ class OMRawHitMerger(Module):
         self.output_hits_key = self.get('output_hits_key') or 'MergedEvtRawHits'
 
     def process(self, blob):
-        detector = blob['Detector']
         hits = blob[self.input_hits_key]
-        
         hits.sort(key=lambda x: x.time)
 
         print("Number of raw hits: " + str(len(hits)))
 
-        om_hits = {}
-        for hit in hits:
-            omkey = detector.pmtid2omkey(hit.pmt_id)
-            om_hits.setdefault((omkey[0], omkey[1]), []).append(hit)
-
+        om_hits = self.sort_hits_by_om(hits)
         merged_hits = self.merge_hits(om_hits)
         print("Number of merged hits: " + str(len(merged_hits)))
         
         blob[self.output_hits_key] = merged_hits
-        
         return blob
+
+    def sort_hits_by_om(self, hits):
+        om_hits = {}
+        for hit in hits:
+            omkey = self.detector.pmtid2omkey(hit.pmt_id)
+            om_hits.setdefault((omkey[0], omkey[1]), []).append(hit)
+        return om_hits
 
     def merge_hits(self, om_hits):
         """Merge hits on each om and return a flat list"""
