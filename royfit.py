@@ -1,9 +1,32 @@
 import operator
 
+import numpy as np
+import matplotlib.pyplot as plt
+
 from km3pipe import Module
 
+class ZTPlotter(Module):
+    def process(self, blob):
+        self.scatter(blob['EvtRawHits'], size=30, alpha=0.2, marker='x')
+        self.scatter(blob['MergedEvtRawHits'], size=40, alpha=0.2, color='red', marker='o')
+        plt.show()
+        return blob
+
+    def scatter(self, hits, color='blue', size=10, alpha=1.0, marker='o'):
+        times, zs = self.get_zt_points(hits)
+        plt.scatter(times, zs, s=size, c=color, alpha=alpha, marker=marker)
+
+    def get_zt_points(self, hits):
+        times = [hit.time for hit in hits]
+        zs = []
+        for hit in hits:
+            pmt = self.detector.pmt_with_id(hit.pmt_id)
+            zs.append(pmt.pos.z)
+        return times, zs
+
+
 class TOTFilter(Module):
-    """Only keep hits with at least min_tot"""
+    """Only keeps hits with at least min_tot"""
     def __init__(self, **context):
         super(self.__class__, self).__init__(**context)
         self.min_tot = self.get('min_tot') or 20 

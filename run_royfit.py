@@ -13,7 +13,7 @@ except ImportError:
 from km3pipe import Geometry
 from km3pipe.pumps import EvtPump
 from km3modules import StatusBar
-from royfit import OMRawHitMerger, TOTFilter
+from royfit import OMRawHitMerger, TOTFilter, ZTPlotter
 
 DATA_PATH='/Users/tamasgal/Data/KM3NeT'
 EVT_FILE='mu_single_line/km3net_jul13_90m_muatm50T99_single_line.km3.jte.evt'
@@ -29,6 +29,7 @@ def main():
                 input_hits='MergedEvtRawHits',
                 output_hits='HighToTHits',
                 min_tot=45)
+    pipe.attach(ZTPlotter)
     pipe.drain(10)
 
 
