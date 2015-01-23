@@ -2,6 +2,7 @@ import operator
 
 from km3pipe import Module
 
+
 class OMRawHitMerger(Module):
     """Merges hits on the same OM within a given time window.
 
@@ -28,6 +29,15 @@ class OMRawHitMerger(Module):
             omkey = detector.pmtid2omkey(hit.pmt_id)
             om_hits.setdefault((omkey[0], omkey[1]), []).append(hit)
 
+        merged_hits = self.merge_hits(om_hits)
+        print("Number of merged hits: " + str(len(merged_hits)))
+        
+        blob[self.output_hits_key] = merged_hits
+        
+        return blob
+
+    def merge_hits(self, om_hits):
+        """Merge hits on each om and return a flat list"""
         merged_hits = []
         for om, hits in om_hits.iteritems():
             hits_to_merge = None
@@ -43,13 +53,8 @@ class OMRawHitMerger(Module):
                             merged_hit = reduce(operator.add, hits_to_merge)
                             merged_hits.append(merged_hit)
                         hits_to_merge = [hit]
+        return merged_hits
 
-        print("Number of merged hits: " + str(len(merged_hits)))
-        
-        blob[self.output_hits_key] = merged_hits
-                        
-        return blob
-    
 
 class ROyFitter(Module):
     pass
