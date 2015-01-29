@@ -29,7 +29,7 @@ def main():
                 input_hits='MergedEvtRawHits',
                 output_hits='LongToTHits',
                 min_tot=45)
-#    pipe.attach(T3HitSelector, adjacent_t=80, next_to_adjacent_t=160,
+#    pipe.attach(T3HitSelector, adjacent_t=200, next_to_adjacent_t=400,
 #                input_hits='LongToTHits',
 #                output_hits='T3Hits')
     pipe.attach(ZTPlotter)

@@ -44,8 +44,8 @@ class T3HitSelector(Module):
     """
     def __init__(self, **context):
         super(self.__class__, self).__init__(**context)
-        self.adjacent_t = self.get('adjacent_t') or 80
-        self.next_to_adjacent_t = self.get('next_to_adjacent') or 160
+        self.adjacent_t = self.get('adjacent_t') or 200
+        self.next_to_adjacent_t = self.get('next_to_adjacent') or 400
         self.input_hits = self.get('input_hits') or 'LongToTHits'
         self.output_hits = self.get('output_hits') or 'T3Hits'
 
