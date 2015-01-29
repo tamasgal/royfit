@@ -13,9 +13,9 @@ class ZTPlotter(Module):
         self.scatter(blob['MergedEvtRawHits'],
                      size=80, alpha=0.2, color='red', marker='o',
                      label='MergedRawHits')
-        self.scatter(blob['HighToTHits'],
+        self.scatter(blob['LongToTHits'],
                      size=60, alpha=1.0, color='green', marker='x',
-                     label='High ToT Hits')
+                     label='Long ToT Hits')
         plt.xlabel("t [ns]", fontsize=12)
         plt.ylabel("z [m]", fontsize=12)
         plt.legend()
@@ -35,19 +35,37 @@ class ZTPlotter(Module):
         return times, zs
 
 
+class T3HitSelector(Module):
+    """Creates a list of hits which contribute to a T3 definition.
+
+    T3 is defined by the coincidence of two hits on adjacent or
+    next-to-adjacent OMs within a given time window.
+    
+    """
+    def __init__(self, **context):
+        super(self.__class__, self).__init__(**context)
+        self.adjacent_t = self.get('adjacent_t') or 80
+        self.next_to_adjacent_t = self.get('next_to_adjacent') or 160
+        self.input_hits = self.get('input_hits') or 'LongToTHits'
+        self.output_hits = self.get('output_hits') or 'T3Hits'
+
+    def process(self, blob):
+        om_hits = sort_hits_by_om(self.input_hits, self.detector)
+
+
 class TOTFilter(Module):
     """Only keeps hits with at least min_tot"""
     def __init__(self, **context):
         super(self.__class__, self).__init__(**context)
         self.min_tot = self.get('min_tot') or 20 
         self.input_hits = self.get('input_hits') or 'EvtRawHits'
-        self.output_hits = self.get('output_hits') or 'HighToTHits'
+        self.output_hits = self.get('output_hits') or 'LongToTHits'
 
     def process(self, blob):
         hits = blob[self.input_hits]
         filtered_hits = [hit for hit in hits if hit.tot >= self.min_tot]
         blob[self.output_hits] = filtered_hits
-        print("Number of high tot hits: " + str(len(filtered_hits)))
+        print("Number of long tot hits: " + str(len(filtered_hits)))
         return blob
 
 
@@ -70,19 +88,12 @@ class OMRawHitMerger(Module):
 
         print("Number of raw hits: " + str(len(hits)))
 
-        om_hits = self.sort_hits_by_om(hits)
+        om_hits = sort_hits_by_om(hits, self.detector)
         merged_hits = self.merge_hits(om_hits)
         print("Number of merged hits: " + str(len(merged_hits)))
 
         blob[self.output_hits] = merged_hits
         return blob
-
-    def sort_hits_by_om(self, hits):
-        om_hits = {}
-        for hit in hits:
-            omkey = self.detector.pmtid2omkey(hit.pmt_id)
-            om_hits.setdefault((omkey[0], omkey[1]), []).append(hit)
-        return om_hits
 
     def merge_hits(self, om_hits):
         """Merge hits on each om and return a flat list"""
@@ -106,4 +117,12 @@ class OMRawHitMerger(Module):
 
 class ROyFitter(Module):
     pass
+
+
+def sort_hits_by_om(hits, detector):
+    om_hits = {}
+    for hit in hits:
+        omkey = detector.pmtid2omkey(hit.pmt_id)
+        om_hits.setdefault((omkey[0], omkey[1]), []).append(hit)
+    return om_hits
 
