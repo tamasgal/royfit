@@ -11,11 +11,20 @@ class ZTPlotter(Module):
                      size=2, alpha=1.0, marker='.',
                      label="RawHits")
         self.scatter(blob['MergedEvtRawHits'],
-                     size=80, alpha=0.2, color='red', marker='o',
+                     size=80, alpha=0.2, color='blue', marker='o',
                      label='MergedRawHits')
         self.scatter(blob['LongToTHits'],
-                     size=60, alpha=1.0, color='green', marker='x',
+                     size=60, alpha=1.0, color='green', marker='.',
                      label='Long ToT Hits')
+        self.scatter(blob['FirstOMHits'],
+                     size=60, alpha=1.0, color='red', marker='x',
+                     label='First OM Hits')
+        self.scatter(blob['T3Hits'],
+                     size=60, alpha=1.0, color='yellow', marker='.',
+                     label='T3 Hits')
+        self.scatter(blob['FirstT3Hits'],
+                     size=160, alpha=1.0, color='magenta', marker='+',
+                     label='First T3 Hits')
         plt.xlabel("t [ns]", fontsize=12)
         plt.ylabel("z [m]", fontsize=12)
         plt.legend()
@@ -46,11 +55,53 @@ class T3HitSelector(Module):
         super(self.__class__, self).__init__(**context)
         self.adjacent_t = self.get('adjacent_t') or 200
         self.next_to_adjacent_t = self.get('next_to_adjacent') or 400
-        self.input_hits = self.get('input_hits') or 'LongToTHits'
+        self.input_hits = self.get('input_hits') or 'FirstOMHits'
+        self.candidate_hits = self.get('candidate_hits') or 'EvtRawHits'
         self.output_hits = self.get('output_hits') or 'T3Hits'
 
     def process(self, blob):
-        om_hits = sort_hits_by_om(self.input_hits, self.detector)
+        om_hits = sort_hits_by_om(blob[self.input_hits], self.detector)
+        candidate_hits = blob[self.candidate_hits]
+        om_candidate_hits = sort_hits_by_om(candidate_hits, self.detector)
+        selected_hits = []
+        skip_pmtids = []
+        for om, hits in om_hits.iteritems():
+            hit = hits[0]
+
+            hits_above = om_candidate_hits.get((om[0], om[1]+1))
+            hits_below = om_candidate_hits.get((om[0], om[1]-1))
+            adjacent_hits = []
+            if hits_above: adjacent_hits += hits_above
+            if hits_below: adjacent_hits += hits_below
+
+            hits_next_to_above = om_candidate_hits.get((om[0], om[1]+2))
+            hits_next_to_below = om_candidate_hits.get((om[0], om[1]-2))
+            next_to_adjacent_hits = []
+            if hits_next_to_above: next_to_adjacent_hits += hits_next_to_above
+            if hits_next_to_below: next_to_adjacent_hits += hits_next_to_below
+
+            for adjacent_hit in adjacent_hits:
+                if 0 <= adjacent_hit.time - hit.time <= self.adjacent_t:
+                    if not adjacent_hit.pmt_id in skip_pmtids:
+                        selected_hits.append(adjacent_hit)
+                        skip_pmtids.append(adjacent_hit.pmt_id)
+                    if not hit.pmt_id in skip_pmtids:
+                        selected_hits.append(hit)
+                        skip_pmtids.append(hit.pmt_id)
+
+            for adjacent_hit in next_to_adjacent_hits:
+                if 0 <= adjacent_hit.time - hit.time <= self.next_to_adjacent_t:
+                    if not adjacent_hit.pmt_id in skip_pmtids:
+                        selected_hits.append(adjacent_hit)
+                        skip_pmtids.append(adjacent_hit.pmt_id)
+                    if not hit.pmt_id in skip_pmtids:
+                        selected_hits.append(hit)
+                        skip_pmtids.append(hit.pmt_id)
+
+
+        blob[self.output_hits] = selected_hits
+        return blob
+
 
 
 class TOTFilter(Module):
@@ -113,6 +164,27 @@ class OMRawHitMerger(Module):
                             merged_hits.append(merged_hit)
                         hits_to_merge = [hit]
         return merged_hits
+
+
+class FirstOMHitFilter(Module):
+    """Keeps only the first hit on each OM"""
+    def __init__(self, **context):
+        super(self.__class__, self).__init__(**context)
+        self.input_hits = self.get('input_hits') or 'LongToTHits'
+        self.output_hits = self.get('output_hits') or 'FirstOMHits'
+
+    def process(self, blob):
+        hits = sorted(blob[self.input_hits], key=lambda x: x.time)
+        first_hits = []
+        skip_oms = []
+        for hit in hits:
+            om = self.detector.pmtid2omkey(hit.pmt_id)[:2]
+            if om in skip_oms:
+                continue
+            first_hits.append(hit)
+            skip_oms.append(om)
+        blob[self.output_hits] = first_hits
+        return blob
 
 
 class ROyFitter(Module):
