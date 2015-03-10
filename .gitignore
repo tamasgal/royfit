@@ -58,3 +58,10 @@ docs/_build/
 # PyCharm files
 .idea
 
+# Pickles
+*.pickle
+
+playground
+
+# IPython stuff
+.ipynb_*

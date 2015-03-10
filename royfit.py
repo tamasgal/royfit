@@ -1,11 +1,21 @@
 import operator
+import pickle
 
 import numpy as np
 import matplotlib.pyplot as plt
 
 from km3pipe import Module
+from km3pipe.tools import unit_vector, angle_between
+
+from minimiser import QualityFunction
+
+import iminuit as minuit
+#import minuit2 as minuit
+
 
 class ZTPlotter(Module):
+    """A z-t-plotter"""
+    #TODO: rewrite me, I'm hard coded!
     def process(self, blob):
         self.scatter(blob['EvtRawHits'],
                      size=2, alpha=1.0, marker='.',
@@ -188,7 +198,131 @@ class FirstOMHitFilter(Module):
 
 
 class ROyFitter(Module):
-    pass
+    """Keeps only the first hit on each OM"""
+    def __init__(self, **context):
+        super(self.__class__, self).__init__(**context)
+        self.input_hits = self.get('input_hits') or 'LongToTHits'
+        self.output_hits = self.get('output_hits') or 'FirstOMHits'
+        self.zeniths = []
+        self.all_zeniths = []
+        self.quality_parameters = []
+        self.stats = []
+        self.processed_events = 0
+        self.tried_events = 0
+
+    def process(self, blob):
+        self.processed_events += 1
+        mc_track = blob['TrackIns'][0]
+        zenith = mc_track.dir.zenith * 180.0 / np.pi
+
+        self.all_zeniths.append(zenith)
+        
+
+        hits = blob[self.input_hits]
+        if len(hits) < 5:
+            return blob
+        self.tried_events += 1
+
+        hit_times = [hit.time for hit in hits]
+
+        z_coordinates = []
+        for hit in hits:
+            pmt = self.detector.pmt_with_id(hit.pmt_id)
+            z_coordinates.append(pmt.pos.z)
+
+
+        zc_ini = (min(z_coordinates) + max(z_coordinates)) / 2#sum(z_coordinates)/len(z_coordinates)
+        tc_ini = min(hit_times)#sum(hit_times)/len(hit_times)
+        dc_ini = 20.
+        uz_ini = -0.75 #np.pi - np.cos(zenith)
+
+        dc_lowlimit = 2.
+        dc_highlimit = 100.
+
+        quality_function = QualityFunction(hit_times, z_coordinates, 8)
+        fitter = minuit.Minuit(quality_function,
+                               zc=zc_ini,
+                               tc=tc_ini,
+                               dc=dc_ini,
+                               uz=uz_ini,
+                               error_dc=1.0,
+                               error_uz=0.01,
+                               error_tc=1.0,
+                               error_zc=1.0,
+                               limit_zc=(min(z_coordinates),
+                                         max(z_coordinates)),
+                               limit_uz = (-1.0, 1.0),
+                               limit_dc = (dc_lowlimit,dc_highlimit))
+
+        fitter.tol = 1
+        #fitter.up = 1
+        #fitter.maxcalls = 500
+
+        #fitter.printMode = 1
+        try:
+            fitter.migrad()
+        except minuit.MinuitError:
+            print("Fitting error!!!")
+        else:
+            quality_parameter = fitter.fval / 4
+            print("Q/4: {0}".format(quality_parameter))
+            print("Values:")
+            print(fitter.values)
+            print("Errors:")
+            print(fitter.errors)
+            print("MC zenith: {0}".format(zenith))
+            reco_zenith = 180 - (np.arccos(fitter.values["uz"]) / (np.pi/180.0))
+            #reco_zenith = fitter.values["uz"]
+            print("Reconstructed zenith: {0}".format(reco_zenith))
+
+            if fitter.get_fmin().is_valid:
+                self.quality_parameters.append(quality_parameter)
+                self.zeniths.append((zenith, reco_zenith))
+                self.stats.append((zenith, reco_zenith, quality_parameter))
+
+#        x, y = fitter.profile('zc', subtract_min=True)
+#        plt.plot(x, y)
+#        plt.show()
+
+        return blob
+
+    def finish(self):
+        print("Processed {0} events".format(self.processed_events))
+        print("Tried fit on {0} events".format(self.tried_events))
+
+        mc_zenith = [zenith for zenith, reco_zenith in self.zeniths]
+        reco_zenith = [reco_zenith for zenith, reco_zenith in self.zeniths]
+
+        plt.hist2d(mc_zenith, reco_zenith, bins=30)
+        plt.title("ROyFit on {0} MUPAGE events with {1} valid fits" \
+                  .format(self.processed_events, len(self.zeniths)),
+                  y=1.04)
+        plt.xlabel('MC zenith [degree]')
+        plt.ylabel('reco zenith [degree]')
+        plt.colorbar()
+        plt.show()
+
+        plt.hist(self.quality_parameters, bins=40)
+        plt.title("ROyFit on {0} MUPAGE events with {1} valid fits - Q/4" \
+                  .format(self.processed_events, len(self.zeniths)),
+                  y=1.04)
+        plt.xlabel("Q/4")
+        plt.ylabel("count")
+        plt.show()
+
+
+        plt.hist([zen_mc - zen_reco for zen_mc, zen_reco in self.zeniths])
+        plt.show()
+
+        with open('reco_stats.pickle', 'w') as file:
+            pickle.dump(self.stats, file)
+
+        with open('all_zeniths.pickle', 'w') as file:
+            pickle.dump(self.all_zeniths, file)
+
+        with open('reco_zeniths.pickle', 'w') as file:
+            pickle.dump(self.zeniths, file)
+
 
 
 def sort_hits_by_om(hits, detector):
@@ -197,4 +331,5 @@ def sort_hits_by_om(hits, detector):
         omkey = detector.pmtid2omkey(hit.pmt_id)
         om_hits.setdefault((omkey[0], omkey[1]), []).append(hit)
     return om_hits
+
 
