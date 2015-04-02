@@ -1,6 +1,5 @@
 from __future__ import division
 
-import math
 import operator
 import pickle
 
@@ -227,7 +226,6 @@ class ROyFitter(Module):
         self.tried_events += 1
 
         hit_times = [hit.time for hit in hits]
-        hit_charges = [npe_from_tot(hit.tot) for hit in hits]
 
         z_coordinates = []
         for hit in hits:
@@ -243,11 +241,14 @@ class ROyFitter(Module):
         dc_lowlimit = 2.
         dc_highlimit = 100.
 
-        quality_function = QualityFunction(hit_times,
-                                           z_coordinates,
-                                           hit_charges,
-                                           8)
-        fitter = minuit.Minuit(quality_function,
+        prefits = []
+        for uz_ini in [x/100 for x in range(-100, 100)]:
+            print("="*70)
+            print("CHECKING uz_ini={0}".format(uz_ini))
+
+            quality_function = QualityFunction(hit_times, z_coordinates, 8)
+            fitter = minuit.Minuit(quality_function,
+                               print_level=0,
                                zc=zc_ini,
                                tc=tc_ini,
                                dc=dc_ini,
@@ -256,40 +257,43 @@ class ROyFitter(Module):
                                error_uz=0.01,
                                error_tc=1.0,
                                error_zc=1.0,
+                               fix_uz=True,
                                limit_zc=(min(z_coordinates),
                                          max(z_coordinates)),
                                limit_uz = (-1.0, 1.0),
                                limit_dc = (dc_lowlimit,dc_highlimit))
 
-        fitter.tol = 1
-        #fitter.up = 1
-        #fitter.maxcalls = 500
+            fitter.tol = 1
 
-        #fitter.printMode = 1
-        try:
-            fitter.migrad()
-        except minuit.MinuitError:
-            print("Fitting error!!!")
-        else:
-            quality_parameter = fitter.fval / 4
-            print("Q/4: {0}".format(quality_parameter))
-            print("Values:")
-            print(fitter.values)
-            print("Errors:")
-            print(fitter.errors)
-            print("MC zenith: {0}".format(zenith))
-            reco_zenith = 180 - (np.arccos(fitter.values["uz"]) / (np.pi/180.0))
-            #reco_zenith = fitter.values["uz"]
-            print("Reconstructed zenith: {0}".format(reco_zenith))
+            try:
+                fitter.migrad()
+            except minuit.MinuitError:
+                print("Fitting error!!!")
+            else:
+                prefits.append(fitter)
 
-            if fitter.get_fmin().is_valid:
-                self.quality_parameters.append(quality_parameter)
-                self.zeniths.append((zenith, reco_zenith))
-                self.stats.append((zenith, reco_zenith, quality_parameter))
 
-#        x, y = fitter.profile('zc', subtract_min=True)
-#        plt.plot(x, y)
-#        plt.show()
+        best_fit = min(prefits, key=lambda x: x.fval)
+
+        print("Best chi^2: {0}".format(best_fit.fval))
+        quality_parameter = best_fit.fval / 4
+        print("Q/4: {0}".format(quality_parameter))
+        print("Chi^2: {0}".format(best_fit.fval))
+        print("Values:")
+        print(best_fit.values)
+        print("Errors:")
+        print(best_fit.errors)
+        print("MC zenith: {0}".format(zenith))
+        reco_zenith = 180 - (np.arccos(best_fit.values["uz"]) / (np.pi/180.0))
+        print("Reconstructed zenith: {0}".format(reco_zenith))
+
+        if best_fit.get_fmin().is_valid:
+            self.quality_parameters.append(quality_parameter)
+            self.zeniths.append((zenith, reco_zenith))
+            self.stats.append((zenith, reco_zenith, quality_parameter))
+
+
+
 
         return blob
 
@@ -318,7 +322,13 @@ class ROyFitter(Module):
         plt.show()
 
 
-        plt.hist([zen_mc - zen_reco for zen_mc, zen_reco in self.zeniths])
+        plt.hist([zen_mc - zen_reco for zen_mc, zen_reco in self.zeniths],
+                 bins=90)
+        plt.title("ROyFit on {0} MUPAGE events with {1} valid fits" \
+                  .format(self.processed_events, len(self.zeniths)),
+                  y=1.04)
+        plt.xlabel("(zenith_MC - zenith_reco) [degree]")
+        plt.ylabel("count")
         plt.show()
 
         with open('reco_stats.pickle', 'w') as file:
@@ -340,25 +350,3 @@ def sort_hits_by_om(hits, detector):
     return om_hits
 
 
-def tot_from_npe(npe):
-    """Calculates tot from npe"""
-    rise_time = 5.0
-    decay_time = 4.5
-    decay_rate = 50.0
-    tot_npe = 4.5
-    tot_saturation = 2e2
-    tot = rise_time + decay_time * math.log(npe * decay_rate) + tot_npe * npe
-    return tot * tot_saturation / (tot + tot_saturation)
-
-
-GRAIN = 10
-MAX_NPE = 1500
-TOTS = [tot_from_npe(x) for x in np.arange(1, MAX_NPE, 1 / GRAIN)]
-def npe_from_tot(tot):
-    """Calculate npe from tot"""
-    if tot > 194:
-        return tot*10
-    grain = 10
-    for calculated_tot in TOTS:
-        if tot < calculated_tot:
-            return (TOTS.index(calculated_tot) + 1) / GRAIN
