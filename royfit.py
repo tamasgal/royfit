@@ -10,6 +10,7 @@ from km3pipe.tools import unit_vector, angle_between
 from minimiser import QualityFunction
 
 import iminuit as minuit
+
 #import minuit2 as minuit
 
 
@@ -209,6 +210,8 @@ class ROyFitter(Module):
         self.stats = []
         self.processed_events = 0
         self.tried_events = 0
+        self.values=[]
+        self.errors=[]
 
     def process(self, blob):
         self.processed_events += 1
@@ -268,6 +271,7 @@ class ROyFitter(Module):
             print("Q/4: {0}".format(quality_parameter))
             print("Values:")
             print(fitter.values)
+            
             print("Errors:")
             print(fitter.errors)
             print("MC zenith: {0}".format(zenith))
@@ -279,6 +283,8 @@ class ROyFitter(Module):
                 self.quality_parameters.append(quality_parameter)
                 self.zeniths.append((zenith, reco_zenith))
                 self.stats.append((zenith, reco_zenith, quality_parameter))
+                self.values.append(fitter.values)
+                self.errors.append(fitter.errors)
 
 #        x, y = fitter.profile('zc', subtract_min=True)
 #        plt.plot(x, y)
@@ -293,26 +299,32 @@ class ROyFitter(Module):
         mc_zenith = [zenith for zenith, reco_zenith in self.zeniths]
         reco_zenith = [reco_zenith for zenith, reco_zenith in self.zeniths]
 
-        plt.hist2d(mc_zenith, reco_zenith, bins=30)
-        plt.title("ROyFit on {0} MUPAGE events with {1} valid fits" \
-                  .format(self.processed_events, len(self.zeniths)),
-                  y=1.04)
-        plt.xlabel('MC zenith [degree]')
-        plt.ylabel('reco zenith [degree]')
-        plt.colorbar()
-        plt.show()
+#plt.hist2d(mc_zenith, reco_zenith, bins=30)
+#       plt.title("ROyFit on {0} MUPAGE events with {1} valid fits" \
+ #                 .format(self.processed_events, len(self.zeniths)),
+ #               y=1.04)
+ #      plt.xlabel('MC zenith [degree]')
+ #      plt.ylabel('reco zenith [degree]')
+ #      plt.colorbar()
+ #      plt.show()
+ #      hist.show()
+ #      plt.hist(self.quality_parameters, bins=40)
+ #      plt.title("ROyFit on {0} MUPAGE events with {1} valid fits - Q/4" \
+  #                .format(self.processed_events, len(self.zeniths)),
+  #              y=1.04)
+  #     plt.xlabel("Q/4")
+  #     plt.ylabel("count")
+  #     plt.show()
+  
+        output=open("comp_mc_reco.txt","w")
+        for i in range(len(mc_zenith)):
+            #print("self.dc: "+str(self.values[i]["dc"]))
+            #if self.quality_parameters[i]>=0 and self.quality_parameters[i]<5 and self.values[i]["dc"]/self.errors[i]["dc"]<1. and self.values[i]["dc"]<50 and abs(reco_zenith[i]-mc_zenith[i])<5:
+            if abs(reco_zenith[i]-mc_zenith[i])>=0:
+                output.write(str(mc_zenith[i])+"\t"+str(reco_zenith[i])+"\t"+str(self.quality_parameters[i])+"\t"+str(self.values[i]["zc"])+"\t"+str(self.errors[i]["zc"])+"\t"+str(self.values[i]["dc"])+"\t"+str(self.errors[i]["dc"])+"\t"+str(self.values[i]["tc"])+"\t"+str(self.errors[i]["tc"])+"\t"+str(self.values[i]["uz"])+"\t"+str(self.errors[i]["uz"])+"\n")
 
-        plt.hist(self.quality_parameters, bins=40)
-        plt.title("ROyFit on {0} MUPAGE events with {1} valid fits - Q/4" \
-                  .format(self.processed_events, len(self.zeniths)),
-                  y=1.04)
-        plt.xlabel("Q/4")
-        plt.ylabel("count")
-        plt.show()
-
-
-        plt.hist([zen_mc - zen_reco for zen_mc, zen_reco in self.zeniths])
-        plt.show()
+#plt.hist([zen_mc - zen_reco for zen_mc, zen_reco in self.zeniths])
+#        plt.show()
 
         with open('reco_stats.pickle', 'w') as file:
             pickle.dump(self.stats, file)
