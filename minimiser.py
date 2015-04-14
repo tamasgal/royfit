@@ -24,7 +24,7 @@ class SingleStringParameters(object):
         self.c_mean = sum(self.c) / len(self.c)
         self.sigma_t = sigma_t # time error in ns
         self.d0 = 50 # distance to photon which induces 1pe
-        self.d1 = 5 # minimum distance
+        self.d1 = 10 # minimum distance
 
     def D_gamma(self, uz, zc, dc):
         """Travel path"""

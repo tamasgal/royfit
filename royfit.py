@@ -389,7 +389,7 @@ class ROyFitter(Module):
         plt.show()
 
 
-        plt.hist([zen_mc - zen_reco for zen_mc, zen_reco in self.zeniths])
+        plt.hist([zen_mc - zen_reco for zen_mc, zen_reco in self.zeniths], bins=36)
         plt.show()
 
         with open('reco_stats.pickle', 'w') as file:
