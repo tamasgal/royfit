@@ -8,6 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from km3pipe import Module
+from km3pipe.dataclasses import Position
 from km3pipe.tools import unit_vector, angle_between
 
 from minimiser import QualityFunction
@@ -15,11 +16,19 @@ from minimiser import QualityFunction
 import iminuit as minuit
 #import minuit2 as minuit
 
+from km3pipe import constants
+
+
+n = 1.3797
+c = constants.c / 1e9
 
 class ZTPlotter(Module):
     """A z-t-plotter"""
     #TODO: rewrite me, I'm hard coded!
     def process(self, blob):
+        mc_track = blob['TrackIns'][0]
+        self.plot_hyperbola(mc_track)
+
         self.scatter(blob['EvtRawHits'],
                      size=2, alpha=1.0, marker='.',
                      label="RawHits")
@@ -55,6 +64,41 @@ class ZTPlotter(Module):
             pmt = self.detector.pmt_with_id(hit.pmt_id)
             zs.append(pmt.pos.z)
         return times, zs
+
+    def plot_hyperbola(self, particle):
+        zs = range(-200, 1000)
+        Lx, Ly, _ = self.detector.dom_positions[0]
+        
+        tgamma = self.cherenkov_time_for_particle
+
+        tgammas = [tgamma(particle, Lx, Ly, z) for z in zs]
+        plt.scatter(tgammas, zs, s=0.3)
+
+
+
+    def cherenkov_time_for_particle(self, particle, x, y, z):
+        Lx, Ly, _ = self.detector.dom_positions[0]
+        ux, uy, uz = particle.dir
+        t0 = particle.time
+        zc = self.point_of_closest_approach(particle)
+        tc = t0 + 1/c * (Lx*ux + Ly*uy + zc*uz - particle.pos.dot(particle.dir))
+        dc = self.distance_to_line(particle, tc)
+        dgamma = n/math.sqrt(n**2 - 1) * math.sqrt(dc**2 + (z - zc)**2 * (1 - uz**2))
+        tgamma = (tc - particle.time) + 1/c*((z - zc)*uz + (n**2 - 1)/n * dgamma)
+        return tgamma
+
+    def point_of_closest_approach(self, particle):
+        Lx, Ly, _ = self.detector.dom_positions[0]
+        _, _, qz = particle.pos
+        ux, uy, uz = particle.dir
+        zc = (qz - uz*(particle.pos.dot(particle.dir)) + uz*(Lx*ux + Ly*uy)) / (1 - uz**2)
+        return zc
+
+    def distance_to_line(self, particle, tc):
+        Lx, Ly, _ = self.detector.dom_positions[0]
+        p_tc = particle.pos + c*(tc - particle.time)*Position(particle.dir)
+        dc = math.sqrt((p_tc.x - Lx)**2 + (p_tc.y - Ly)**2)
+        return dc
 
 
 class T3HitSelector(Module):

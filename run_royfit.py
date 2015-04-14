@@ -50,7 +50,7 @@ def main():
     pipe.attach(ROyFitter,
                 input_hits='FirstT3Hits',
                 output_track='ROyMuonTrack')
-#    pipe.attach(ZTPlotter)
+    pipe.attach(ZTPlotter)
     pipe.drain()
 
 
