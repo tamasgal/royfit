@@ -4,6 +4,12 @@ __pycache__/
 
 # C extensions
 *.so
+*.c
+*.cc
+*.h
+
+# Text files
+*.txt
 
 # Distribution / packaging
 .Python
