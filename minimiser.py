@@ -17,10 +17,14 @@ n = 1.3797
 c = constants.c / 1e9
 
 class SingleStringParameters(object):
-    def __init__(self, t, z, sigma_t=10):
+    def __init__(self, t, z, c, sigma_t=10):
         self.t = np.array(t) # measured hit times
         self.z = np.array(z) # z-component of hit PMT
+        self.c = np.array(c) # charges or pmt_hit_counts (within a given deltat)
+        self.c_mean = sum(self.c) / len(self.c)
         self.sigma_t = sigma_t # time error in ns
+        self.d0 = 50 # distance to photon which induces 1pe
+        self.d1 = 10 # minimum distance
 
     def D_gamma(self, uz, zc, dc):
         """Travel path"""
@@ -39,4 +43,5 @@ class QualityFunction(SingleStringParameters):
     """Creates the quality function for the minimiser.
     """
     def __call__(self, uz, zc, dc, tc):
-        return sum((self.T_gamma(uz, zc, dc, tc) - self.t)**2 / self.sigma_t**2)
+        #return sum((self.T_gamma(uz, zc, dc, tc) - self.t)**2 / self.sigma_t**2 + self.c / self.c_mean)
+        return sum((self.T_gamma(uz, zc, dc, tc) - self.t)**2 / self.sigma_t**2 + (self.c * np.sqrt(self.d1**2 + self.D_gamma(uz, zc, dc)**2))/(self.c_mean * self.d0))
