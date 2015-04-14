@@ -66,11 +66,20 @@ class ZTPlotter(Module):
         return times, zs
 
     def plot_hyperbola(self, particle):
+        Lx, Ly, _ = self.detector.dom_positions[0]
+        ux, uy, uz = particle.dir
+        t0 = particle.time
+        zc = self.point_of_closest_approach(particle)
+        tc = t0 + 1/c * (Lx*ux + Ly*uy + zc*uz - particle.pos.dot(particle.dir))
+        dc = self.distance_to_line(particle, tc)
+
+        print("MC truth: zc={0}, dc={1}, tc={2}, uz={3}".format(zc, dc, tc, uz))
+
+
+
         zs = range(-200, 1000)
         Lx, Ly, _ = self.detector.dom_positions[0]
-        
         tgamma = self.cherenkov_time_for_particle
-
         tgammas = [tgamma(particle, Lx, Ly, z) for z in zs]
         plt.scatter(tgammas, zs, s=0.3)
 
@@ -260,11 +269,13 @@ class ROyFitter(Module):
     def process(self, blob):
         self.processed_events += 1
         mc_track = blob['TrackIns'][0]
-        zenith = mc_track.dir.zenith * 180.0 / np.pi
+        #zenith = mc_track.dir.zenith * 180.0 / np.pi
+        zenith = np.arcsin(mc_track.dir.z) * 180 / np.pi
 
         self.all_zeniths.append(zenith)
         
 
+        raw_hits = blob['EvtRawHits']
         hits = blob[self.input_hits]
         if len(hits) < 5:
             return blob
@@ -272,6 +283,21 @@ class ROyFitter(Module):
 
         hit_times = [hit.time for hit in hits]
         hit_charges = [npe_from_tot(hit.tot) for hit in hits]
+        pmt_hit_counts = []
+        print([hit.tot for hit in hits])
+        print(hit_charges)
+
+        for hit in hits:
+            line, om, pmt = self.detector.pmtid2omkey(hit.pmt_id)
+            pmt_hit_count = 0
+            for raw_hit in raw_hits:
+                _, the_om, _ = self.detector.pmtid2omkey(raw_hit.pmt_id)
+                if the_om == om and (hit.time + 25 > raw_hit.time >= hit.time):
+                    pmt_hit_count += 1
+            pmt_hit_counts.append(pmt_hit_count)
+
+        print(pmt_hit_counts)
+
 
         z_coordinates = []
         for hit in hits:
@@ -289,7 +315,7 @@ class ROyFitter(Module):
 
         quality_function = QualityFunction(hit_times,
                                            z_coordinates,
-                                           hit_charges,
+                                           pmt_hit_counts,
                                            8)
         fitter = minuit.Minuit(quality_function,
                                zc=zc_ini,
@@ -322,7 +348,8 @@ class ROyFitter(Module):
             print("Errors:")
             print(fitter.errors)
             print("MC zenith: {0}".format(zenith))
-            reco_zenith = 180 - (np.arccos(fitter.values["uz"]) / (np.pi/180.0))
+            #reco_zenith = 180 - (np.arccos(fitter.values["uz"]) / (np.pi/180.0))
+            reco_zenith = np.arcsin(fitter.values['uz']) * 180 / np.pi
             #reco_zenith = fitter.values["uz"]
             print("Reconstructed zenith: {0}".format(reco_zenith))
 
