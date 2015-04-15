@@ -259,21 +259,17 @@ class ROyFitter(Module):
         super(self.__class__, self).__init__(**context)
         self.input_hits = self.get('input_hits') or 'LongToTHits'
         self.output_hits = self.get('output_hits') or 'FirstOMHits'
-        self.zeniths = []
-        self.all_zeniths = []
-        self.quality_parameters = []
-        self.stats = []
+        self.stats_file = self.get('stats_file') or 'royfit_stats.pickle'
+        self.stats = {}
         self.processed_events = 0
         self.tried_events = 0
+        self.valid_fits = 0
 
     def process(self, blob):
         self.processed_events += 1
         mc_track = blob['TrackIns'][0]
         #zenith = mc_track.dir.zenith * 180.0 / np.pi
         zenith = np.arcsin(mc_track.dir.z) * 180 / np.pi
-
-        self.all_zeniths.append(zenith)
-        
 
         raw_hits = blob['EvtRawHits']
         hits = blob[self.input_hits]
@@ -282,21 +278,17 @@ class ROyFitter(Module):
         self.tried_events += 1
 
         hit_times = [hit.time for hit in hits]
-        hit_charges = [npe_from_tot(hit.tot) for hit in hits]
-        pmt_hit_counts = []
-        print([hit.tot for hit in hits])
-        print(hit_charges)
 
+        pmt_hit_counts = []
         for hit in hits:
             line, om, pmt = self.detector.pmtid2omkey(hit.pmt_id)
             pmt_hit_count = 0
             for raw_hit in raw_hits:
                 _, the_om, _ = self.detector.pmtid2omkey(raw_hit.pmt_id)
-                if the_om == om and (hit.time + 25 > raw_hit.time >= hit.time):
+                if the_om == om and (hit.time + 15 > raw_hit.time >= hit.time):
                     pmt_hit_count += 1
             pmt_hit_counts.append(pmt_hit_count)
 
-        print(pmt_hit_counts)
 
 
         z_coordinates = []
@@ -354,9 +346,19 @@ class ROyFitter(Module):
             print("Reconstructed zenith: {0}".format(reco_zenith))
 
             if fitter.get_fmin().is_valid:
-                self.quality_parameters.append(quality_parameter)
-                self.zeniths.append((zenith, reco_zenith))
-                self.stats.append((zenith, reco_zenith, quality_parameter))
+                self.valid_fits += 1
+                self._save('mc_zenith', zenith)
+                self._save('reco_zenith', reco_zenith)
+                self._save('quality_parameter', quality_parameter)
+                self._save('angular_error', zenith - reco_zenith)
+                self._save('zc', fitter.values['zc'])
+                self._save('dc', fitter.values['dc'])
+                self._save('tc', fitter.values['tc'])
+                self._save('uz', fitter.values['uz'])
+                self._save('zc_err', fitter.errors['zc'])
+                self._save('dc_err', fitter.errors['dc'])
+                self._save('tc_err', fitter.errors['tc'])
+                self._save('uz_err', fitter.errors['uz'])
 
 #        x, y = fitter.profile('zc', subtract_min=True)
 #        plt.plot(x, y)
@@ -364,43 +366,23 @@ class ROyFitter(Module):
 
         return blob
 
+    def _save(self, name, value):
+        """Create a new entry in the stats file."""
+        self.stats.setdefault(name, []).append(value)
+
+    def _dump_stats(self):
+        """Store statistics in a pickle dump."""
+        filename = self.stats_file
+        print("Saving reconstruction statistics to: {0}".format(filename))
+        with open(filename, 'w') as file:
+            pickle.dump(self.stats, file)
+
     def finish(self):
         print("Processed {0} events".format(self.processed_events))
         print("Tried fit on {0} events".format(self.tried_events))
-
-        mc_zenith = [zenith for zenith, reco_zenith in self.zeniths]
-        reco_zenith = [reco_zenith for zenith, reco_zenith in self.zeniths]
-
-        plt.hist2d(mc_zenith, reco_zenith, bins=30)
-        plt.title("ROyFit on {0} MUPAGE events with {1} valid fits" \
-                  .format(self.processed_events, len(self.zeniths)),
-                  y=1.04)
-        plt.xlabel('MC zenith [degree]')
-        plt.ylabel('reco zenith [degree]')
-        plt.colorbar()
-        plt.show()
-
-        plt.hist(self.quality_parameters, bins=40)
-        plt.title("ROyFit on {0} MUPAGE events with {1} valid fits - Q/4" \
-                  .format(self.processed_events, len(self.zeniths)),
-                  y=1.04)
-        plt.xlabel("Q/4")
-        plt.ylabel("count")
-        plt.show()
-
-
-        plt.hist([zen_mc - zen_reco for zen_mc, zen_reco in self.zeniths], bins=36)
-        plt.show()
-
-        with open('reco_stats.pickle', 'w') as file:
-            pickle.dump(self.stats, file)
-
-        with open('all_zeniths.pickle', 'w') as file:
-            pickle.dump(self.all_zeniths, file)
-
-        with open('reco_zeniths.pickle', 'w') as file:
-            pickle.dump(self.zeniths, file)
-
+        self.stats['number_of_events'] = self.processed_events
+        self.stats['number_of_vaild_fits'] = self.valid_fits
+        self._dump_stats()
 
 
 def sort_hits_by_om(hits, detector):
@@ -411,25 +393,3 @@ def sort_hits_by_om(hits, detector):
     return om_hits
 
 
-def tot_from_npe(npe):
-    """Calculates tot from npe"""
-    rise_time = 5.0
-    decay_time = 4.5
-    decay_rate = 50.0
-    tot_npe = 4.5
-    tot_saturation = 2e2
-    tot = rise_time + decay_time * math.log(npe * decay_rate) + tot_npe * npe
-    return tot * tot_saturation / (tot + tot_saturation)
-
-
-GRAIN = 10
-MAX_NPE = 1500
-TOTS = [tot_from_npe(x) for x in np.arange(1, MAX_NPE, 1 / GRAIN)]
-def npe_from_tot(tot):
-    """Calculate npe from tot"""
-    if tot > 194:
-        return tot*10
-    grain = 10
-    for calculated_tot in TOTS:
-        if tot < calculated_tot:
-            return (TOTS.index(calculated_tot) + 1) / GRAIN
