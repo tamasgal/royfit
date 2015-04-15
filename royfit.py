@@ -260,16 +260,23 @@ class ROyFitter(Module):
         self.input_hits = self.get('input_hits') or 'LongToTHits'
         self.output_hits = self.get('output_hits') or 'FirstOMHits'
         self.stats_file = self.get('stats_file') or 'royfit_stats.pickle'
+        self.sigma_t = self.get('sigma_t') or 8
+        self.d0 = self.get('d0') or 50
+        self.d1 = self.get('d1') or 5
         self.stats = {}
         self.processed_events = 0
         self.tried_events = 0
         self.valid_fits = 0
 
+        self.stats['fit_parameters'] = {'d0': self.d0,
+                                        'd1': self.d1, 
+                                        'sigma_t': self.sigma_t}
+
     def process(self, blob):
         self.processed_events += 1
         mc_track = blob['TrackIns'][0]
-        #zenith = mc_track.dir.zenith * 180.0 / np.pi
-        zenith = np.arcsin(mc_track.dir.z) * 180 / np.pi
+        zenith = mc_track.dir.zenith * 180.0 / np.pi
+        #zenith = np.arcsin(mc_track.dir.z) * 180 / np.pi
 
         raw_hits = blob['EvtRawHits']
         hits = blob[self.input_hits]
@@ -308,7 +315,9 @@ class ROyFitter(Module):
         quality_function = QualityFunction(hit_times,
                                            z_coordinates,
                                            pmt_hit_counts,
-                                           8)
+                                           sigma_t=self.sigma_t,
+                                           d0=self.d0,
+                                           d1=self.d1)
         fitter = minuit.Minuit(quality_function,
                                zc=zc_ini,
                                tc=tc_ini,
@@ -340,8 +349,8 @@ class ROyFitter(Module):
             print("Errors:")
             print(fitter.errors)
             print("MC zenith: {0}".format(zenith))
-            #reco_zenith = 180 - (np.arccos(fitter.values["uz"]) / (np.pi/180.0))
-            reco_zenith = np.arcsin(fitter.values['uz']) * 180 / np.pi
+            reco_zenith = 180 - (np.arccos(fitter.values["uz"]) / (np.pi/180.0))
+            #reco_zenith = np.arcsin(fitter.values['uz']) * 180 / np.pi
             #reco_zenith = fitter.values["uz"]
             print("Reconstructed zenith: {0}".format(reco_zenith))
 
