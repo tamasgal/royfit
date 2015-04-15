@@ -43,5 +43,13 @@ class QualityFunction(SingleStringParameters):
     """Creates the quality function for the minimiser.
     """
     def __call__(self, uz, zc, dc, tc):
+        # no weighting
         #return sum((self.T_gamma(uz, zc, dc, tc) - self.t)**2 / self.sigma_t**2 + self.c / self.c_mean)
-        return sum((self.T_gamma(uz, zc, dc, tc) - self.t)**2 / self.sigma_t**2 + (self.c * np.sqrt(self.d1**2 + self.D_gamma(uz, zc, dc)**2))/(self.c_mean * self.d0))
+
+        # first weighting
+        #return sum((self.T_gamma(uz, zc, dc, tc) - self.t)**2 / self.sigma_t**2 + (self.c * np.sqrt(self.d1**2 + self.D_gamma(uz, zc, dc)**2))/(self.c_mean * self.d0))
+
+        aip = 2.*self.c/(self.Cos_theta(uz, zc, dc) + 1.)
+        avg_aip = sum(aip)/len(aip)
+        D  = np.sqrt(self.d1**2 + self.D_gamma(uz, zc, dc)**2)
+        return sum((self.T_gamma( uz, zc, dc, tc) - self.t)**2 / self.sigma_t**2 + aip*D/(avg_aip*self.d0))
