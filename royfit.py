@@ -260,6 +260,7 @@ class ROyFitter(Module):
         self.input_hits = self.get('input_hits') or 'LongToTHits'
         self.output_hits = self.get('output_hits') or 'FirstOMHits'
         self.stats_file = self.get('stats_file') or 'royfit_stats.pickle'
+        self.min_hits = self.get('min_hits') or 4
         self.sigma_t = self.get('sigma_t') or 8
         self.d0 = self.get('d0') or 50
         self.d1 = self.get('d1') or 5
@@ -280,7 +281,7 @@ class ROyFitter(Module):
 
         raw_hits = blob['EvtRawHits']
         hits = blob[self.input_hits]
-        if len(hits) < 5:
+        if len(hits) < self.min_hits:
             return blob
         self.tried_events += 1
 
