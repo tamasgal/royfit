@@ -10,7 +10,7 @@ except ImportError:
     sys.path.insert(1, '/Users/tamasgal/Dev/km3pipe')
     import km3pipe
 
-from km3pipe import Geometry
+from km3pipe import Geometry, Module
 from km3pipe.pumps import EvtPump
 from km3modules import StatusBar
 from royfit import (OMRawHitMerger, TOTFilter, T3HitSelector, ZTPlotter,
@@ -22,13 +22,19 @@ DATA_PATH='/Users/tamasgal/Data/KM3NeT'
 EVT_FILE='single_line_prod/jte/km3net_jul13_90m_muatm10T'
 GEO_FILE='Detector/km3net_single_line.detx'
 
+
+class PrintHits(Module):
+    def process(self, blob):
+        print(blob['FirstT3Hits'])
+        return blob
+
 def main():
     pipe = km3pipe.Pipeline()
 #    pipe.attach(EvtPump, filename=os.path.join(DATA_PATH, EVT_FILE))
     pipe.attach(EvtPump, basename=os.path.join(DATA_PATH, EVT_FILE), index_start=1, index_stop=100)
     pipe.attach(StatusBar)
     pipe.attach(Geometry, filename=os.path.join(DATA_PATH, GEO_FILE))
-    pipe.attach(OMRawHitMerger, time_window=20)
+    pipe.attach(OMRawHitMerger, time_window=30)
     pipe.attach(TOTFilter,
                 input_hits='MergedEvtRawHits',
                 output_hits='LongToTHits',
@@ -43,17 +49,24 @@ def main():
     pipe.attach(FirstOMHitFilter,
                 input_hits='T3Hits',
                 output_hits='FirstT3Hits')
+    pipe.attach(TOTFilter,
+                input_hits='FirstT3Hits',
+                output_hits='FirstT3Hits_tot30',
+                min_tot=30)
+    pipe.attach(PrintHits)
 #    pipe.attach(AdditionalHitSelector,
 #                input_hits='FirstT3Hits',
 #                hit_pool='EvtRawHits',
 #                output_hits='ROyFitHits')
     pipe.attach(ROyFitter,
+                #input_hits='FirstT3Hits',
                 input_hits='FirstT3Hits',
                 output_track='ROyMuonTrack',
                 sigma_t=8,
                 d0=50,
-                d1=5)
-#    pipe.attach(ZTPlotter)
+                d1=0.15,
+                stats_file='FirstT3Hits_tot30.pickle')
+    pipe.attach(ZTPlotter)
     pipe.drain()
 
 
