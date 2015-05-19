@@ -1,5 +1,11 @@
-from __future__ import division
+# coding=utf-8
+# Filename: core.py
+# pylint: disable=locally-disabled
+"""
+The core of the  Restless Oyster (Muon) Fit.
 
+"""
+from __future__ import division, absolute_import, print_function
 import math
 import operator
 import pickle
@@ -10,13 +16,14 @@ import matplotlib.pyplot as plt
 from km3pipe import Module
 from km3pipe.dataclasses import Position
 from km3pipe.tools import unit_vector, angle_between
+from km3pipe import constants
+from km3pipe.logger import logging
 
-from minimiser import QualityFunction
+log = logging.getLogger(__name__)  # pylint: disable=C0103
+
+from .minimiser import QualityFunction
 
 import iminuit as minuit
-#import minuit2 as minuit
-
-from km3pipe import constants
 
 
 n = 1.3797
