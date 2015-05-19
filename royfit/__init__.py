@@ -22,5 +22,5 @@ try:
     from royfit.core import (ZTPlotter, T3HitSelector, TOTFilter,
                              OMRawHitMerger, FirstOMHitFilter, ROyFitter)
     from royfit.minimiser import QualityFunction
-except Importerror as e:
+except ImportError as e:
     print(e)
