@@ -18,7 +18,9 @@ __email__ = "tgal@km3net.de"
 __status__ = "Development"
 
 
-from royfit.core import (ZTPlotter, T3HitSelector, TOTFilter, OMRawHitMerger,
-                         FirstOMHitFilter, ROyFitter)
-
-from royfit.minimiser import QualityFunction
+try:
+    from royfit.core import (ZTPlotter, T3HitSelector, TOTFilter,
+                             OMRawHitMerger, FirstOMHitFilter, ROyFitter)
+    from royfit.minimiser import QualityFunction
+except Importerror as e:
+    print(e)
