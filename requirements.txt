@@ -1,3 +1,5 @@
 iminuit
 matplotlib
 km3pipe
+numpy
+scipy
